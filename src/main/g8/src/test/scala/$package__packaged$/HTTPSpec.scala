@@ -24,4 +24,12 @@ trait HTTPSpec extends Matchers {
       _ <- Sync[F].delay(assert(r.status == expectedStatus, s"Status was \${r.status} instead of \$expectedStatus."))
     } yield ()
 
+  protected def check[F[_]: Sync](
+    response: F[Response[F]],
+    expectedStatus: Status
+  ): F[Unit] =
+    for {
+      r <- response
+      _ <- Sync[F].delay(assert(r.status == expectedStatus, s"Status was \${r.status} instead of \$expectedStatus."))
+    } yield ()    
 }

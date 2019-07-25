@@ -6,7 +6,7 @@ import zio.ZIO
 
 package object db {
 
-  def get(id: Long): ZIO[UserRepository, Error, Option[User]] =
+  def get(id: Long): ZIO[UserRepository, Error, User] =
     ZIO.accessM(_.repository.get(id))
 
   def create(user: User): ZIO[UserRepository, Error, User] =

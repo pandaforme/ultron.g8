@@ -1,9 +1,9 @@
 package $package$.module.db
 
+import $package$.model.database.User
+import $package$.model.{DBError, Error, NotFoundError, UnexpectedError}
 import com.typesafe.config.Config
 import io.getquill.{H2JdbcContext, SnakeCase}
-import $package$.model.database.User
-import $package$.model.{DBError, Error, UnexpectedError}
 import zio.ZIO
 
 trait LiveUserRepository extends UserRepository {
@@ -13,8 +13,16 @@ trait LiveUserRepository extends UserRepository {
     lazy val ctx = new H2JdbcContext(SnakeCase, config)
     import ctx._
 
-    def get(id: Long): ZIO[Any, Error, Option[User]] = {
-      zio.IO.effect(ctx.run(query[User].filter(_.id == lift(id))).headOption).mapError {
+    def get(id: Long): ZIO[Any, Error, User] = {
+      (for {
+        list <- zio.IO.effect(ctx.run(query[User].filter(_.id == lift(id))))
+        user <- list match {
+          case Nil => ZIO.fail(NotFoundError(s"Not found a user by id = \$id"))
+          case s :: _ => ZIO.succeed(s)
+        }
+      } yield {
+        user
+      }).mapError {
         case e: Exception => DBError(e)
         case t: Throwable => UnexpectedError(t)
       }
@@ -24,7 +32,7 @@ trait LiveUserRepository extends UserRepository {
       zio.IO.effect(ctx.run(query[User].insert(lift(user)))).mapError {
         case e: Exception => DBError(e)
         case t: Throwable => UnexpectedError(t)
-      } *> get(user.id).map(_.get)
+      } *> get(user.id)
     }
 
     def delete(id: Long): ZIO[Any, Error, Unit] = {

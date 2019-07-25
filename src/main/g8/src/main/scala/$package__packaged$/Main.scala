@@ -4,28 +4,34 @@ import scala.collection.JavaConverters._
 import scala.util.Try
 
 import cats.effect.ExitCode
-import com.typesafe.config.{Config, ConfigFactory}
-import eu.timepit.refined.auto._
 import $package$.model.config.Application
 import $package$.module.db.{LiveUserRepository, UserRepository}
 import $package$.module.logger.{LiveLogger, Logger => MyLogger}
+import $package$.route.UserRoute
+import com.typesafe.config.{Config, ConfigFactory}
+import eu.timepit.refined.auto._
 import org.http4s.implicits._
+import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.middleware.Logger
-import $package$.route.UserRoute
+import tapir.docs.openapi._
+import tapir.openapi.circe.yaml._
+import tapir.swagger.http4s.SwaggerHttp4s
 import zio.clock.Clock
 import zio.console.{putStrLn, Console}
 import zio.interop.catz._
-import zio.{App, ZIO}
+import zio.{App, TaskR, ZIO}
 
 object Main extends App {
   type AppEnvironment = Clock with Console with UserRepository with MyLogger
+  private val userRoute = new UserRoute[AppEnvironment]
+  private val yaml = userRoute.getEndPoints.toOpenAPI("User", "1.0").toYaml
 
   override def run(args: List[String]): ZIO[Main.Environment, Nothing, Int] = {
     val result = for {
       application <- ZIO.fromTry(Try(Application.getConfig))
 
-      httpApp = new UserRoute[AppEnvironment].route.orNotFound
+      httpApp = Router("/" -> userRoute.getRoutes, "/docs" -> new SwaggerHttp4s(yaml).routes[TaskR[AppEnvironment, ?]]).orNotFound
       finalHttpApp = Logger.httpApp[ZIO[AppEnvironment, Throwable, ?]](true, true)(httpApp)
 
       server = ZIO.runtime[AppEnvironment].flatMap { implicit rts =>

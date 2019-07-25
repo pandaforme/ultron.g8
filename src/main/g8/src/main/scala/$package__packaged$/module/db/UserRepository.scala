@@ -13,7 +13,7 @@ object UserRepository {
 
   trait Service {
 
-    def get(id: Long): ZIO[Any, Error, Option[User]]
+    def get(id: Long): ZIO[Any, Error, User]
 
     def create(user: User): ZIO[Any, Error, User]
 

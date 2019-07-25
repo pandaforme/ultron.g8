@@ -25,6 +25,7 @@ object XYZ {
   }
 }
 ```
+
 3. Create a package object in `module.xyz`
 ```scala
 package object xyz {
@@ -33,6 +34,7 @@ package object xyz {
     ZIO.accessM(_.service.doXYZ())
 }
 ```
+
 4. Create an instance for test/live in `module.xyz`
 ```scala
 trait LiveXYZ extends XYZ {
@@ -41,6 +43,7 @@ trait LiveXYZ extends XYZ {
     }
 }
 ```
+
 5. Create your own route in `route` and pass your interface into enviroment type
 ```scala
 class XyzRoute[R <: XYZ] extends Http4sDsl[TaskR[R, ?]] {
@@ -54,6 +57,7 @@ class XyzRoute[R <: XYZ] extends Http4sDsl[TaskR[R, ?]] {
 }
 ```
 6. Write unit test
+
 7. Add your interfaces to `AppEnvironment`, routes to `httpApp` and provide Live instances in `Main.scala`
 ```scala
 object Main extends App {
@@ -81,7 +85,7 @@ object Main extends App {
           .drain
       }
       program <- server.provideSome[Environment] { base =>
-        new Clock with Console with LiveUserRepository with LiveLogger {
+        new Clock with Console with LiveUserRepository with LiveLogger with LiveXyz{
           val clock: Clock.Service[Any] = base.clock
           val console: Console.Service[Any] = base.console
           val config: Config = ConfigFactory.parseMap(
@@ -96,7 +100,7 @@ object Main extends App {
     } yield program
 
     result
-      .foldM(failure = err => putStrLn(s"Execution failed with: \$err") *> ZIO.succeed(1), success = _ => ZIO.succeed(0))
+      .foldM(failure = err => putStrLn(s"Execution failed with: $err") *> ZIO.succeed(1), success = _ => ZIO.succeed(0))
   }
 }
 ```

@@ -3,7 +3,7 @@ A ZIO + http4s + Circe + Quill + Tapir giter8 template
 # How to install
 ```sh
 brew update && brew install giter8
-g8 https://github.agodadev.io/chchen/ultron.g8.git
+g8 pandaforme/ultron.g8
 ```
 
 # How to add a new API

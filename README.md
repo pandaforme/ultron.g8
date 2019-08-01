@@ -26,6 +26,12 @@ brew update && brew install giter8
 g8 pandaforme/ultron.g8
 ```
 
+Alternatively, with more recent versions (0.13.13 and later)of sbt that have g8 built in:
+
+```sh
+sbt new pandaforme/ultron.g8
+```
+
 # How to add a new API
 1. Create a package in `module`
 for example: `xyz`

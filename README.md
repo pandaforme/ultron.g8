@@ -1,5 +1,25 @@
 A ZIO + http4s + Circe + Quill + Tapir giter8 template
 
+# Prerequisites
+1. Lanuch H2 database at your local machine
+For example: using H2 docker image
+```
+docker pull oscarfonts/h2
+docker run -d -p 1521:1521 -p 81:81 -v /path/to/local/data_dir:/opt/h2-data --name=MyH2Instance oscarfonts/h2
+```
+
+2. Import SQL to H2 database
+```
+CREATE TABLE IF NOT EXISTS user
+(
+    id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    age INT NOT NULL,
+    PRIMARY KEY(id)
+);
+
+```
+
 # How to install
 ```sh
 brew update && brew install giter8
@@ -110,6 +130,10 @@ object Main extends App {
 Swagger: http://localhost:5566/docs
 User API: http://localhost:5566/user
 ```
+# Challenges
+1. Try to implement `LiveLogger`
+2. Because quill driver of H2 database is not Asynced, we need to push blocking IO to another thread pool. 
+How to achieve it via `ZIO`?
 
 
 # Referneces

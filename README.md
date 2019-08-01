@@ -1,7 +1,7 @@
 A ZIO + http4s + Circe + Quill + Tapir giter8 template
 
 # Prerequisites
-1. Lanuch H2 database at your local machine
+1. Launch H2 database at your local machine
 For example: using H2 docker image
 ```
 docker pull oscarfonts/h2

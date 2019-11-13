@@ -3,21 +3,40 @@ package $package$.route
 import cats.syntax.semigroupk._
 import $package$.implicits.Throwable._
 import $package$.model.database.User
-import $package$.model.response.{ErrorResponse, InternalServerErrorResponse, NotFoundResponse}
-import $package$.model.{DBError, Error, NotFoundError, UnexpectedError}
+import $package$.model.response.{
+  BadRequestResponse,
+  ErrorResponse,
+  InternalServerErrorResponse,
+  NotFoundResponse
+}
+import $package$.model.{DBFailure, ExpectedFailure, NotFoundFailure}
 import $package$.module.db._
 import $package$.module.logger.{Logger, _}
 import io.circe.generic.auto._
 import org.http4s._
 import org.http4s.dsl.Http4sDsl
+import tapir.DecodeResult.Error
 import tapir._
 import tapir.json.circe._
 import tapir.model.StatusCodes
 import tapir.server.http4s._
+import tapir.server.{DecodeFailureHandling, ServerDefaults}
 import zio.interop.catz._
-import zio.{TaskR, ZIO}
+import zio.{RIO, ZIO}
 
-class UserRoute[R <: UserRepository with Logger] extends Http4sDsl[TaskR[R, ?]] {
+class UserRoute[R <: UserRepository with Logger] extends Http4sDsl[RIO[R, *]] {
+  private implicit val customServerOptions: Http4sServerOptions[RIO[R, *]] = Http4sServerOptions
+    .default[RIO[R, *]]
+    .copy(
+      decodeFailureHandler = (request, input, failure) => {
+        failure match {
+          case Error(_, error) =>
+            DecodeFailureHandling.response(jsonBody[BadRequestResponse])(BadRequestResponse(error.toString))
+          case _ => ServerDefaults.decodeFailureHandler(request, input, failure)
+        }
+      }
+    )
+
   private val getUserEndPoint = endpoint.get
     .in("user" / path[Long]("user id"))
     .errorOut(
@@ -27,18 +46,14 @@ class UserRoute[R <: UserRepository with Logger] extends Http4sDsl[TaskR[R, ?]] 
       ))
     .out(jsonBody[User])
 
-  private val insertUserEndPoint = endpoint.post
+  private val createUserEndPoint = endpoint.post
     .in("user")
     .in(jsonBody[User])
     .errorOut(
       oneOf[ErrorResponse](
         statusMapping(StatusCodes.InternalServerError, jsonBody[InternalServerErrorResponse])
       ))
-    .out(
-      oneOf(
-        statusMapping(StatusCodes.Created, jsonBody[User])
-      )
-    )
+    .out(statusCode(StatusCodes.Created))
 
   private val deleteUserEndPoint = endpoint.delete
     .in("user" / path[Long]("user id"))
@@ -49,54 +64,52 @@ class UserRoute[R <: UserRepository with Logger] extends Http4sDsl[TaskR[R, ?]] 
       ))
     .out(emptyOutput)
 
-  val getRoutes: HttpRoutes[TaskR[R, ?]] = {
+  val getRoutes: HttpRoutes[RIO[R, *]] = {
     getUserEndPoint.toRoutes { userId =>
-      {
-        val result = for {
-          _ <- debug(s"id: \$userId")
-          user <- get(userId)
-          _ <- debug(s"user: \$user")
-        } yield {
-          user
-        }
-
-        handleError(result)
-      }
-    } <+> insertUserEndPoint.toRoutes { user =>
+      handleError(getUser(userId))
+    } <+> createUserEndPoint.toRoutes { user =>
       handleError(create(user))
     } <+> deleteUserEndPoint.toRoutes { id =>
-      {
-        val result = for {
-          _ <- debug(s"id: \$id")
-          user <- get(id)
-          _ <- delete(user.id)
-        } yield {}
+      val result = for {
+        _ <- debug(s"id: \$id")
+        user <- getUser(id)
+        _ <- delete(user.id)
+      } yield {}
 
-        handleError(result)
-      }
+      handleError(result)
     }
   }
 
   val getEndPoints = {
-    List(getUserEndPoint, insertUserEndPoint, deleteUserEndPoint)
+    List(getUserEndPoint, createUserEndPoint, deleteUserEndPoint)
   }
 
-  private def handleError[A](result: ZIO[R, Error, A]): ZIO[R, Throwable, Either[ErrorResponse, A]] = {
-    result.foldM(
-      {
-        case DBError(e) =>
-          error(e)(s"Database error: \$e").either.map(_ =>
-            Left(InternalServerErrorResponse("Database BOOM", e.getMessage, e.getStacktrace)))
+  private def getUser(userId: Long): ZIO[R, ExpectedFailure, User] = {
+    for {
+      _ <- debug(s"id: \$userId")
+      user <- get(userId)
+      u <- user match {
+        case None => ZIO.fail(NotFoundFailure(s"Can not find a user by \$userId"))
+        case Some(s) => ZIO.succeed(s)
+      }
+    } yield {
+      u
+    }
+  }
 
-        case UnexpectedError(t) =>
-          error(t)(s"Unexpected error: \$t").either.map(_ =>
-            Left(InternalServerErrorResponse("Database BOOM", t.getMessage, t.getStacktrace)))
-
-        case NotFoundError(m) =>
-          warn(s"Not Found").either.map(_ => Left(NotFoundResponse(s"Something BOOM, \$m")))
-      },
-      a => ZIO.succeed(Right(a))
-    )
+  private def handleError[A](result: ZIO[R, ExpectedFailure, A]): ZIO[R, Throwable, Either[ErrorResponse, A]] = {
+    result
+      .fold(
+        {
+          case DBFailure(t) => Left(InternalServerErrorResponse("Database BOOM !!!", t.getMessage, t.getStacktrace))
+          case NotFoundFailure(message) => Left(NotFoundResponse(message))
+        },
+        Right(_)
+      )
+      .foldCause(
+        c => Left(InternalServerErrorResponse("Unexpected errors", "", c.squash.getStacktrace)),
+        identity
+      )
   }
 
 }

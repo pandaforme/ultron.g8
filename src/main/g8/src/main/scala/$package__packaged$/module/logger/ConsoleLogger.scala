@@ -1,41 +1,33 @@
 package $package$.module.logger
 
-import $package$.model.Error
+import $package$.implicits.Throwable._
 import zio._
+import zio.console.Console
 
-object ConsoleLogger extends Logger.Service {
-  def error(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal(println(message))
+trait ConsoleLogger extends Logger.Service with Console {
 
-  def warn(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal(println(message))
+  def error(message: => String): ZIO[Any, Nothing, Unit] = console.putStr(message)
 
-  def info(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal(println(message))
+  def warn(message: => String): ZIO[Any, Nothing, Unit] = console.putStr(message)
 
-  def debug(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal(println(message))
+  def info(message: => String): ZIO[Any, Nothing, Unit] = console.putStr(message)
 
-  def trace(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal(println(message))
+  def debug(message: => String): ZIO[Any, Nothing, Unit] = console.putStr(message)
 
-  def error(t: Throwable)(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal {
-    t.printStackTrace()
-    println(message)
-  }
+  def trace(message: => String): ZIO[Any, Nothing, Unit] = console.putStr(message)
 
-  def warn(t: Throwable)(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal {
-    t.printStackTrace()
-    println(message)
-  }
+  def error(t: Throwable)(message: => String): ZIO[Any, Nothing, Unit] =
+    console.putStr(s"message: \$message, exception: \${t.getStacktrace}")
 
-  def info(t: Throwable)(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal {
-    t.printStackTrace()
-    println(message)
-  }
+  def warn(t: Throwable)(message: => String): ZIO[Any, Nothing, Unit] =
+    console.putStr(s"message: \$message, exception: \${t.getStacktrace}")
 
-  def debug(t: Throwable)(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal {
-    t.printStackTrace()
-    println(message)
-  }
+  def info(t: Throwable)(message: => String): ZIO[Any, Nothing, Unit] =
+    console.putStr(s"message: \$message, exception: \${t.getStacktrace}")
 
-  def trace(t: Throwable)(message: => String): ZIO[Any, Error, Unit] = UIO.effectTotal {
-    t.printStackTrace()
-    println(message)
-  }
+  def debug(t: Throwable)(message: => String): ZIO[Any, Nothing, Unit] =
+    console.putStr(s"message: \$message, exception: \${t.getStacktrace}")
+
+  def trace(t: Throwable)(message: => String): ZIO[Any, Nothing, Unit] =
+    console.putStr(s"message: \$message, exception: \${t.getStacktrace}")
 }

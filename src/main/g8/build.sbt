@@ -1,4 +1,4 @@
-scalaVersion              := "2.12.8"
+scalaVersion              := "2.13.1"
 name                      := "starterkit"
 organization              := "com.organization"
 scalafmtOnCompile         := true
@@ -6,22 +6,21 @@ fork in Test              := true
 parallelExecution in Test := true
 
 lazy val Versions = new {
-  val kindProjector = "0.10.3"
+  val kindProjector = "0.11.0"
   val scalamacros = "2.1.1"
-  val http4s = "0.20.6"
-  val zio = "1.0.0-RC10-1"
-  val zioInteropCats = "1.3.1.0-RC3"
-  val circe = "0.11.1"
+  val http4s = "0.21.0-M5"
+  val zio = "1.0.0-RC16"
+  val zioInteropCats = "2.0.0.0-RC7"
+  val circe = "0.12.3"
   val scalaTest = "3.0.8"
-  val randomDataGenerator = "2.7"
-  val ciris = "0.12.1"
+  val randomDataGenerator = "2.8"
+  val ciris = "0.13.0-RC1"
   val logback = "1.2.3"
-  val h2database = "1.4.199"
-  val quill = "3.3.0"
-  val tapir = "0.9.0"
+  val h2database = "1.4.200"
+  val quill = "3.4.10"
+  val tapir = "0.11.9"
 }
-addCompilerPlugin("org.typelevel" %% "kind-projector" % Versions.kindProjector)
-addCompilerPlugin("org.scalamacros" %% "paradise"     % Versions.scalamacros cross CrossVersion.full)
+addCompilerPlugin("org.typelevel" %% "kind-projector" % Versions.kindProjector cross CrossVersion.full)
 
 // Scala libraries
 libraryDependencies ++= Seq(

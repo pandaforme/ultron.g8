@@ -1,48 +1,42 @@
 package $package$.module.db
 
 import $package$.model.database.User
-import $package$.model.{DBError, Error, NotFoundError, UnexpectedError}
+import $package$.model.{DBFailure, ExpectedFailure}
 import com.typesafe.config.Config
 import io.getquill.{H2JdbcContext, SnakeCase}
 import zio.ZIO
 
 trait LiveUserRepository extends UserRepository {
   val config: Config
+  lazy val ctx: H2JdbcContext[SnakeCase.type] = new H2JdbcContext(SnakeCase, config)
+  import ctx._
 
   override val repository: UserRepository.Service = new UserRepository.Service {
-    lazy val ctx = new H2JdbcContext(SnakeCase, config)
-    import ctx._
 
-    def get(id: Long): ZIO[Any, Error, User] = {
-      (for {
-        list <- zio.IO.effect(ctx.run(query[User].filter(_.id == lift(id))))
+    def get(id: Long): ZIO[Any, ExpectedFailure, Option[User]] = {
+      for {
+        list <- ZIO.effect(ctx.run(query[User].filter(_.id == lift(id)))).mapError(t => DBFailure(t))
         user <- list match {
-          case Nil => ZIO.fail(NotFoundError(s"Not found a user by id = \$id"))
-          case s :: _ => ZIO.succeed(s)
+          case Nil => ZIO.none
+          case s :: _ => ZIO.some(s)
         }
       } yield {
         user
-      }).mapError {
-        case e: Exception => DBError(e)
-        case t: Throwable => UnexpectedError(t)
       }
     }
 
-    def create(user: User): ZIO[Any, Error, User] = {
-      zio.IO.effect(ctx.run(query[User].insert(lift(user)))).mapError {
-        case e: Exception => DBError(e)
-        case t: Throwable => UnexpectedError(t)
-      } *> get(user.id)
+    def create(user: User): ZIO[Any, ExpectedFailure, Unit] = {
+      zio.IO
+        .effect(ctx.run(query[User].insert(lift(user))))
+        .mapError(t => DBFailure(t))
+        .unit
     }
 
-    def delete(id: Long): ZIO[Any, Error, Unit] = {
+    def delete(id: Long): ZIO[Any, ExpectedFailure, Unit] = {
       zio.IO
         .effect(ctx.run(query[User].filter(_.id == lift(id)).delete))
-        .mapError {
-          case e: Exception => DBError(e)
-          case t: Throwable => UnexpectedError(t)
-        }
-        .map(_ => ())
+        .mapError(t => DBFailure(t))
+        .unit
     }
   }
 }

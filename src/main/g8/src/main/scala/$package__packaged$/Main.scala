@@ -1,6 +1,6 @@
 package $package$
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 import cats.effect.ExitCode
@@ -17,41 +17,40 @@ import org.http4s.server.middleware.Logger
 import tapir.docs.openapi._
 import tapir.openapi.circe.yaml._
 import tapir.swagger.http4s.SwaggerHttp4s
+import zio._
 import zio.clock.Clock
-import zio.console.{putStrLn, Console}
+import zio.console.putStrLn
 import zio.interop.catz._
-import zio.{App, TaskR, ZIO}
 
 object Main extends App {
-  type AppEnvironment = Clock with Console with UserRepository with MyLogger
+  type AppEnvironment = Clock with UserRepository with MyLogger
+
   private val userRoute = new UserRoute[AppEnvironment]
   private val yaml = userRoute.getEndPoints.toOpenAPI("User", "1.0").toYaml
+  private val httpApp =
+    Router("/" -> userRoute.getRoutes, "/docs" -> new SwaggerHttp4s(yaml).routes[RIO[AppEnvironment, *]]).orNotFound
+  private val finalHttpApp = Logger.httpApp[ZIO[AppEnvironment, Throwable, *]](true, true)(httpApp)
 
-  override def run(args: List[String]): ZIO[Main.Environment, Nothing, Int] = {
+  override def run(args: List[String]): ZIO[ZEnv, Nothing, Int] = {
     val result = for {
-      application <- ZIO.fromTry(Try(Application.getConfig))
-
-      httpApp = Router("/" -> userRoute.getRoutes, "/docs" -> new SwaggerHttp4s(yaml).routes[TaskR[AppEnvironment, ?]]).orNotFound
-      finalHttpApp = Logger.httpApp[ZIO[AppEnvironment, Throwable, ?]](true, true)(httpApp)
-
+      applicationConfig <- ZIO.fromTry(Try(Application.getConfig))
       server = ZIO.runtime[AppEnvironment].flatMap { implicit rts =>
-        BlazeServerBuilder[ZIO[AppEnvironment, Throwable, ?]]
-          .bindHttp(application.server.port, application.server.host.getHostAddress)
+        BlazeServerBuilder[ZIO[AppEnvironment, Throwable, *]]
+          .bindHttp(applicationConfig.server.port, applicationConfig.server.host.getHostAddress)
           .withHttpApp(finalHttpApp)
           .serve
-          .compile[ZIO[AppEnvironment, Throwable, ?], ZIO[AppEnvironment, Throwable, ?], ExitCode]
+          .compile[ZIO[AppEnvironment, Throwable, *], ZIO[AppEnvironment, Throwable, *], ExitCode]
           .drain
       }
-      program <- server.provideSome[Environment] { base =>
-        new Clock with Console with LiveUserRepository with LiveLogger {
+      program <- server.provideSome[ZEnv] { base =>
+        new Clock with LiveUserRepository with LiveLogger {
           val clock: Clock.Service[Any] = base.clock
-          val console: Console.Service[Any] = base.console
           val config: Config = ConfigFactory.parseMap(
             Map(
-              "dataSourceClassName" -> application.database.className.value,
-              "dataSource.url" -> application.database.url.value,
-              "dataSource.user" -> application.database.user.value,
-              "dataSource.password" -> application.database.password.value
+              "dataSourceClassName" -> applicationConfig.database.className.value,
+              "dataSource.url" -> applicationConfig.database.url.value,
+              "dataSource.user" -> applicationConfig.database.user.value,
+              "dataSource.password" -> applicationConfig.database.password.value
             ).asJava)
         }
       }

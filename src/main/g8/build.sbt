@@ -1,6 +1,6 @@
 scalaVersion              := "2.13.1"
-name                      := "starterkit"
-organization              := "com.organization"
+name                      := "$name$"
+organization              := "$organization$"
 scalafmtOnCompile         := true
 fork in Test              := true
 parallelExecution in Test := true

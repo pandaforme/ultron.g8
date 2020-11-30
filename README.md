@@ -22,8 +22,7 @@ CREATE TABLE IF NOT EXISTS user
 
 # How to install
 ```sh
-brew update && brew install giter8
-g8 pandaforme/ultron.g8
+sbt new pandaforme/ultron.g8
 ```
 
 # How to add a new API

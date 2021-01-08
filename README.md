@@ -136,7 +136,7 @@ User API: http://localhost:5566/user
 How to achieve it via `ZIO`?
 
 
-# Referneces
+# References
 * [ZIO with http4s and doobie](https://medium.com/@wiemzin/zio-with-http4s-and-doobie-952fba51d089)
 * [mschuwalow/zio-todo-backend](https://github.com/mschuwalow/zio-todo-backend/)
 * [loicdescotte/pureWebappSample](https://github.com/loicdescotte/pureWebappSample)
